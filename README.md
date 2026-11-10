@@ -23,7 +23,7 @@ The script will refuse to reuse a same-named server without its expected firewal
 
 The blog is public on HTTPS. Public TCP/22 is excluded from the Hetzner firewall; SSH access uses Tailscale SSH and your tailnet policy. Only HTTP/HTTPS is exposed in the Docker stack. Check your tailnet SSH policy before deployment so you do not lock yourself out; Hetzner's web console is the recovery path.
 
-Initial provisioning finishes before DNS propagation and automatic HTTPS issuance may finish. Inspect the returned URL after a few minutes. Ghost starts with a persistent MySQL 8 database and content volumes. Configure backups, SMTP/email delivery, updates, monitoring and Ghost's initial `/ghost/` owner setup before using the blog for real publishing. This prototype does not configure those operational services.
+The script now waits up to 15 minutes for the new A record to resolve to the VPS and for Ghost to answer over valid HTTPS. If that times out, it reports the VPS IP for investigation; the billable VPS remains running. This checks the public blog, but does not prove that your own tailnet SSH policy permits access. Confirm SSH from an authorized tailnet device after deployment. Ghost starts with a persistent MySQL 8 database and content volumes. Configure backups, SMTP/email delivery, updates, monitoring and Ghost's initial `/ghost/` owner setup before using the blog for real publishing. This prototype does not configure those operational services.
 
 ## Local checks
 
@@ -33,7 +33,7 @@ python3 -m py_compile deploy.py
 bash -n bootstrap.sh
 ```
 
-These mock provider calls; they do not create a VPS. There is no live deployment in this repository yet.
+These mock provider calls; they do not create a VPS. Nine local tests pass, including DNS/HTTPS readiness and timeout behavior. No live deployment or private-SSH connection has been verified yet. A real run with your accounts and domain is required before treating the task as fully validated.
 
 ## Sources
 

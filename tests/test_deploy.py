@@ -53,4 +53,22 @@ class DeployTests(unittest.TestCase):
         api.return_value={"action":{"status":"error","error":{"code":"quota_exceeded"}}}
         with self.assertRaisesRegex(deploy.DeployError,"quota_exceeded"):deploy.wait_action(1,"token")
 
+    @patch("deploy.urllib.request.urlopen")
+    @patch("deploy.socket.getaddrinfo")
+    def test_blog_is_ready_only_after_dns_and_https(self, lookup, open_url):
+        lookup.return_value=[(None,None,None,None,("198.51.100.2",443))]
+        open_url.return_value.__enter__.return_value.status=200
+        deploy.wait_for_blog("blog.example.com","198.51.100.2",timeout=1)
+        open_url.assert_called_once_with("https://blog.example.com/",timeout=10)
+
+    @patch("deploy.time.sleep")
+    @patch("deploy.time.monotonic")
+    @patch("deploy.socket.getaddrinfo")
+    def test_blog_readiness_times_out_without_expected_dns(self, lookup, clock, sleep):
+        clock.side_effect=[0,0,2]
+        lookup.return_value=[(None,None,None,None,("198.51.100.3",443))]
+        with self.assertRaisesRegex(deploy.DeployError,"did not become healthy"):
+            deploy.wait_for_blog("blog.example.com","198.51.100.2",timeout=1,interval=0)
+        sleep.assert_called_once_with(0)
+
 if __name__=="__main__":unittest.main()

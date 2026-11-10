@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import sys
 import time
 import urllib.error
@@ -112,6 +113,22 @@ def dns(c, ip):
     else:
         api("POST", base, c["ctoken"], body)
 
+def wait_for_blog(domain, ip, timeout=900, interval=10):
+    """Wait until public DNS reaches this VPS and Ghost answers over valid HTTPS."""
+    deadline = time.monotonic() + timeout
+    url = f"https://{domain}/"
+    while time.monotonic() < deadline:
+        try:
+            addresses = {item[4][0] for item in socket.getaddrinfo(domain, 443, type=socket.SOCK_STREAM)}
+            if ip in addresses:
+                with urllib.request.urlopen(url, timeout=10) as response:
+                    if response.status == 200:
+                        return
+        except (OSError, urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(interval)
+    raise DeployError(f"VPS {ip} was created, but {url} did not become healthy within {timeout // 60} minutes; check cloud-init, Docker logs and DNS")
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-type", required=True)
@@ -121,8 +138,10 @@ def main(argv=None):
     machine = server(c, firewall(c))
     ip = machine["public_net"]["ipv4"]["ip"]
     dns(c, ip)
+    print(f"VPS {c['name']} ({ip}) created; waiting for https://{c['domain']}/", flush=True)
+    wait_for_blog(c["domain"], ip)
     print(f"VPS: {c['name']} ({ip}); Ghost: https://{c['domain']}")
-    print("Cloud-init and HTTPS issuance may take several minutes; inspect cloud-init logs through Tailscale if needed.")
+    print("Ghost responds over HTTPS. Complete the first-owner setup at /ghost/.")
     print("SSH is reachable only through your Tailscale policy. Public TCP/22 is blocked by the Hetzner firewall.")
 
 if __name__ == "__main__":
