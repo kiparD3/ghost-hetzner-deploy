@@ -1,0 +1,48 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: '__MYSQL_PASSWORD__'
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: '__MYSQL_PASSWORD__'
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p'__MYSQL_PASSWORD__'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  ghost:
+    image: ghost:6
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      url: https://__DOMAIN__
+      database__client: mysql
+      database__connection__host: mysql
+      database__connection__user: ghost
+      database__connection__password: '__MYSQL_PASSWORD__'
+      database__connection__database: ghost
+    volumes:
+      - ghost_content:/var/lib/ghost/content
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - ghost
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  mysql_data:
+  ghost_content:
+  caddy_data:
+  caddy_config:

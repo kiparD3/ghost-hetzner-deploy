@@ -1,0 +1,4 @@
+__DOMAIN__ {
+    encode gzip
+    reverse_proxy ghost:2368
+}
